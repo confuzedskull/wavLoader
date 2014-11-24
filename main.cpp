@@ -1,7 +1,13 @@
 #include <cstdlib>
+#include <cstdio>
 #include <iostream>
+#ifdef __APPLE__
+#include <OpenAL/al.h>
+#include <OpenAL/alc.h>
+#else
 #include <AL/al.h>
 #include <AL/alc.h>
+#endif
 
 //by defining these types we can avoid using windows.h
 typedef unsigned int DWORD;
