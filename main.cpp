@@ -1,6 +1,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <iostream>
+#include <fstream>
 #ifdef __APPLE__
 #include <OpenAL/al.h>
 #include <OpenAL/alc.h>
@@ -9,56 +10,62 @@
 #include <AL/alc.h>
 #endif
 
-//by defining these types we can avoid using windows.h
-typedef unsigned int DWORD;
-typedef char BYTE;
+//this function checks endianness
+bool is_big_endian()
+{
+    int i=1;
+    return !((char*)&i)[0];
+}
+
+//this function retrieves the appropriate value according to endianness
+int to_int(char* buffer, int length)
+{
+    int i=0;
+    if(!is_big_endian())
+        for(int j=0;j<length;j++)
+            ((char*)&i)[j]=buffer[j];
+    else
+        for(int j=0;j<length;j++)
+            ((char*)&i)[3-j]=buffer[j];
+    return i;
+}
 
 int main(int argc, char *argv[])
 {
+    char file_info[4];
+    int chunk_size,format_type,channels,sample_rate,average_byte_sample,byte_sample,bit_sample,data_size;
     //open wave file
-    FILE *sound_file = NULL;
-    sound_file=fopen("./sound.wav","rb");//read the file in binary mode
-    if(!sound_file)
+    std::ifstream sound_file("./sound.wav",std::ios::binary);
+    sound_file.read(file_info,4);
+    if(sound_file.bad())
         std::cerr<<"error opening sound file\n";
-
-    //file info
-    char type[4];
-    DWORD size,chunk_size;
-    short format_type,channels;
-    DWORD sample_rate,average_byte_sample;
-    short byte_sample,bit_sample;
-    DWORD data_size;
-
-    //check the sound file
-    fread(type,sizeof(char),4,sound_file);
-    if(type[0]!='R' || type[1]!='I' || type[2]!='F' || type[3]!='F')
-        std::cerr<<"not riff\n";
-    fread(&size, sizeof(DWORD),1,sound_file);
-    fread(type, sizeof(char),4,sound_file);
-    if (type[0]!='W' || type[1]!='A' || type[2]!='V' || type[3]!='E')
-        std::cerr<<"not wave file\n";
-    fread(type,sizeof(char),4,sound_file);
-    if (type[0]!='f' || type[1]!='m' || type[2]!='t' || type[3]!=' ')
-        std::cerr<<"not fmt\n";
-
-    //read info about the wave file
-    fread(&chunk_size,sizeof(DWORD),1,sound_file);
-    fread(&format_type,sizeof(short),1,sound_file);
-    fread(&channels,sizeof(short),1,sound_file);
-    fread(&sample_rate,sizeof(DWORD),1,sound_file);
-    fread(&average_byte_sample,sizeof(DWORD),1,sound_file);
-    fread(&byte_sample,sizeof(short),1,sound_file);
-    fread(&bit_sample,sizeof(short),1,sound_file);
-    fread(type,sizeof(char),4,sound_file);
-    if (type[0]!='d' || type[1]!='a' || type[2]!='t' || type[3]!='a')
-        std::cerr<<"missing data\n";
-    fread(&data_size,sizeof(DWORD),1,sound_file);
-    unsigned char* buf= new unsigned char[data_size];
-    fread(buf,sizeof(BYTE),data_size,sound_file);
+    //read file information
+    sound_file.read(file_info,4);//"RIFF" label
+    sound_file.read(file_info,4);//"WAVE" label
+    sound_file.read(file_info,4);//"fmt" label
+    sound_file.read(file_info,4);//chunk size
+    chunk_size=to_int(file_info,4);
+    sound_file.read(file_info,2);//format type
+    format_type=to_int(file_info,2);
+    sound_file.read(file_info,2);//channels
+    channels=to_int(file_info,2);
+    sound_file.read(file_info,4);//sample rate
+    sample_rate=to_int(file_info,4);
+    sound_file.read(file_info,4);//average byte sample
+    average_byte_sample=to_int(file_info,4);
+    sound_file.read(file_info,2);//byte sample
+    byte_sample=to_int(file_info,2);
+    sound_file.read(file_info,2);//bit sample
+    bit_sample=to_int(file_info,2);
+    sound_file.read(file_info,4);//"data" label
+    sound_file.read(file_info,4);//data size
+    data_size=to_int(file_info,4);
+    char* data= new char[data_size];//create a buffer to store sound data
+    sound_file.read(data,data_size);//retrieve sound data
 
     //display the info about the wave file
     std::cout<<"Chunk Size: "<<chunk_size<<std::endl;
-    std::cout<<"Format Type: "<<format_type<<std::endl;
+    std::cout<<"Format type: "<<format_type<<std::endl;
     std::cout<<"Channels: "<<channels<<std::endl;
     std::cout<<"Sample Rate: "<<sample_rate<<std::endl;
     std::cout<<"Average Bytes Per Second: "<<average_byte_sample<<std::endl;
@@ -103,7 +110,7 @@ int main(int argc, char *argv[])
     if(!format)
         std::cerr<<"wrong bit sample\n";
 
-    alBufferData(buffer, format, buf, data_size, frequency);
+    alBufferData(buffer, format, data, data_size, frequency);
     if(alGetError() != AL_NO_ERROR)
         std::cerr<<"error loading buffer\n";
 
@@ -136,9 +143,9 @@ int main(int argc, char *argv[])
     std::cout<<"press enter to quit.\n";
     std::cin.get();
 
-    //clean everything up before closing
-    fclose(sound_file);
-    delete[] buf;
+    //clean everything up before finishing
+    sound_file.close();
+    delete[] data;
     alDeleteSources(1, &source);
     alDeleteBuffers(1, &buffer);
     alcMakeContextCurrent(NULL);
