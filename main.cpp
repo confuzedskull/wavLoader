@@ -1,5 +1,6 @@
 #include <cstdlib>
 #include <cstdio>
+#include <cstdint>
 #include <iostream>
 #include <fstream>
 #ifdef __APPLE__
@@ -18,9 +19,9 @@ bool is_big_endian()
 }
 
 //this function retrieves the appropriate value according to endianness
-int to_int(char* buffer, int length)
+int16_t to_int16(char* buffer, int length)
 {
-    int i=0;
+    int16_t i=0;
     if(!is_big_endian())
         for(int j=0;j<length;j++)
             ((char*)&i)[j]=buffer[j];
@@ -30,36 +31,50 @@ int to_int(char* buffer, int length)
     return i;
 }
 
+//this function retrieves the appropriate value according to endianness
+int32_t to_int32(char* buffer, int length)
+{
+    int32_t i=0;
+    if(!is_big_endian())
+        for(int j=0;j<length;j++)
+            ((char*)&i)[j]=buffer[j];
+    else
+        for(int j=0;j<length;j++)
+            ((char*)&i)[sizeof(int)-1-j]=buffer[j];
+    return i;
+}
+
 int main(int argc, char *argv[])
 {
     char file_info[4];
-    int chunk_size,format_type,channels,sample_rate,average_byte_sample,byte_sample,bit_sample,data_size;
+    int16_t format_type, channels, byte_sample, bit_sample;
+    int32_t chunk_size, sample_rate, byte_rate, data_size;
     //open wave file
     std::ifstream sound_file("./sound.wav",std::ios::binary);
-    sound_file.read(file_info,4);
     if(sound_file.bad())
         std::cerr<<"error opening sound file\n";
+    sound_file.read(file_info,4);
     //read file information
     sound_file.read(file_info,4);//"RIFF" label
     sound_file.read(file_info,4);//"WAVE" label
     sound_file.read(file_info,4);//"fmt" label
     sound_file.read(file_info,4);//chunk size
-    chunk_size=to_int(file_info,4);
+    chunk_size=to_int32(file_info,4);
     sound_file.read(file_info,2);//format type
-    format_type=to_int(file_info,2);
+    format_type=to_int16(file_info,2);
     sound_file.read(file_info,2);//channels
-    channels=to_int(file_info,2);
+    channels=to_int16(file_info,2);
     sound_file.read(file_info,4);//sample rate
-    sample_rate=to_int(file_info,4);
-    sound_file.read(file_info,4);//average byte sample
-    average_byte_sample=to_int(file_info,4);
+    sample_rate=to_int32(file_info,4);
+    sound_file.read(file_info,4);//byte rate
+    byte_rate=to_int32(file_info,4);
     sound_file.read(file_info,2);//byte sample
-    byte_sample=to_int(file_info,2);
+    byte_sample=to_int16(file_info,2);
     sound_file.read(file_info,2);//bit sample
-    bit_sample=to_int(file_info,2);
+    bit_sample=to_int16(file_info,2);
     sound_file.read(file_info,4);//"data" label
     sound_file.read(file_info,4);//data size
-    data_size=to_int(file_info,4);
+    data_size=to_int32(file_info,4);
     char* data= new char[data_size];//create a buffer to store sound data
     sound_file.read(data,data_size);//retrieve sound data
 
@@ -68,8 +83,8 @@ int main(int argc, char *argv[])
     std::cout<<"Format type: "<<format_type<<std::endl;
     std::cout<<"Channels: "<<channels<<std::endl;
     std::cout<<"Sample Rate: "<<sample_rate<<std::endl;
-    std::cout<<"Average Bytes Per Second: "<<average_byte_sample<<std::endl;
-    std::cout<<"Bytes Per Sample: "<< byte_sample<<std::endl;
+    std::cout<<"Byte Rate: "<<byte_rate<<std::endl;
+    std::cout<<"Bytes Per Sample: "<<byte_sample<<std::endl;
     std::cout<<"Bits Per Sample: "<<bit_sample<<std::endl;
     std::cout<<"Data Size: "<<data_size<<std::endl;
 
@@ -85,8 +100,7 @@ int main(int argc, char *argv[])
         std::cerr<<"no sound context\n";
     ALuint source;
     ALuint buffer;
-    ALuint frequency=sample_rate;
-    ALenum format=0;
+    ALuint format=0;
     alGenBuffers(1, &buffer);
     alGenSources(1, &source);
     if(alGetError() != AL_NO_ERROR)
@@ -110,7 +124,7 @@ int main(int argc, char *argv[])
     if(!format)
         std::cerr<<"wrong bit sample\n";
 
-    alBufferData(buffer, format, data, data_size, frequency);
+    alBufferData(buffer, format, data, data_size, sample_rate);
     if(alGetError() != AL_NO_ERROR)
         std::cerr<<"error loading buffer\n";
 
