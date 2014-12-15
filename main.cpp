@@ -78,16 +78,6 @@ int main(int argc, char *argv[])
     char* data= new char[data_size];//create a buffer to store sound data
     sound_file.read(data,data_size);//retrieve sound data
 
-    //display the info about the wave file
-    std::cout<<"Chunk Size: "<<chunk_size<<std::endl;
-    std::cout<<"Format type: "<<format_type<<std::endl;
-    std::cout<<"Channels: "<<channels<<std::endl;
-    std::cout<<"Sample Rate: "<<sample_rate<<std::endl;
-    std::cout<<"Byte Rate: "<<byte_rate<<std::endl;
-    std::cout<<"Bytes Per Sample: "<<byte_sample<<std::endl;
-    std::cout<<"Bits Per Sample: "<<bit_sample<<std::endl;
-    std::cout<<"Data Size: "<<data_size<<std::endl;
-
     //initialize OpenAL
     ALCdevice *device;
     ALCcontext *context;
@@ -148,16 +138,46 @@ int main(int argc, char *argv[])
     alSourcefv(source, AL_VELOCITY, source_velocity);
     alSourcei(source, AL_LOOPING, AL_FALSE);
 
-    //play the sound
-    alSourcePlay(source);
-    if(alGetError() != AL_NO_ERROR)
-        std::cerr<<"error playing sound\n";
-    else
-        std::cout<<"playing sound...\n";
-    std::cout<<"press enter to quit.\n";
-    std::cin.get();
-
-    //clean everything up before finishing
+    std::string command;
+    while(true)
+    {
+        std::cin>>command;
+        if(command=="info")
+        {
+            std::cout<<"Chunk Size: "<<chunk_size<<std::endl;
+            std::cout<<"Format type: "<<format_type<<std::endl;
+            std::cout<<"Channels: "<<channels<<std::endl;
+            std::cout<<"Sample Rate: "<<sample_rate<<std::endl;
+            std::cout<<"Byte Rate: "<<byte_rate<<std::endl;
+            std::cout<<"Bytes Per Sample: "<<byte_sample<<std::endl;
+            std::cout<<"Bits Per Sample: "<<bit_sample<<std::endl;
+            std::cout<<"Data Size: "<<data_size<<std::endl;
+        }
+        else if(command=="play")
+            alSourcePlay(source);
+        else if(command=="pause")
+            alSourcePause(source);
+        else if(command=="stop")
+            alSourceStop(source);
+        else if(command=="rewind")
+            alSourceRewind(source);
+        else if(command=="quit")
+            break;
+        else
+        {
+            if(command!="help")
+                std::cout<<"Command not recognized. Type 'help' for a list of available commands. \n";
+            else
+            {
+                std::cout<<"'info' - displays file information\n";
+                std::cout<<"'play' - plays the current wave file\n";
+                std::cout<<"'pause' - halts the sound momentarily\n";
+                std::cout<<"'stop' - terminates the sound completely\n";
+                std::cout<<"'rewind' - reverses the playback of the sound\n";
+                std::cout<<"'quit' - closes the program\n";
+            }
+        }
+    }
     sound_file.close();
     delete[] data;
     alDeleteSources(1, &source);

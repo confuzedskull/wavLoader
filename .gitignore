@@ -3,6 +3,7 @@
 *.lo
 *.o
 *.obj
+/obj
 
 # Precompiled Headers
 *.gch
@@ -26,9 +27,14 @@
 *.exe
 *.out
 *.app
+bin/
+archive/
+
+# Mac crap
+._.DS_Store
+.DS_Store
 
 # Codeblocks
 *.cbp
 *.depend
 *.layout
-archive/
