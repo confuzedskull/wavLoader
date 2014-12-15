@@ -11,6 +11,17 @@
 #include <AL/alc.h>
 #endif
 
+//global variables
+std::ifstream sound_file;
+bool loaded=false;
+char* data;
+int16_t format_type, channels, byte_sample, bit_sample;
+int32_t chunk_size, sample_rate, byte_rate, data_size;
+ALCdevice *device;
+ALCcontext *context;
+ALuint source;
+ALuint buffer;
+
 //this function checks endianness
 bool is_big_endian()
 {
@@ -44,15 +55,16 @@ int32_t to_int32(char* buffer, int length)
     return i;
 }
 
-int main(int argc, char *argv[])
+void load(std::string filename)
 {
     char file_info[4];
-    int16_t format_type, channels, byte_sample, bit_sample;
-    int32_t chunk_size, sample_rate, byte_rate, data_size;
     //open wave file
-    std::ifstream sound_file("./sound.wav",std::ios::binary);
+    sound_file.open(filename.c_str(),std::ios::binary);
     if(sound_file.bad())
+    {
         std::cerr<<"error opening sound file\n";
+        return;
+    }
     sound_file.read(file_info,4);
     //read file information
     sound_file.read(file_info,4);//"RIFF" label
@@ -75,27 +87,17 @@ int main(int argc, char *argv[])
     sound_file.read(file_info,4);//"data" label
     sound_file.read(file_info,4);//data size
     data_size=to_int32(file_info,4);
-    char* data= new char[data_size];//create a buffer to store sound data
+    data= new char[data_size];//create a buffer to store sound data
     sound_file.read(data,data_size);//retrieve sound data
 
-    //initialize OpenAL
-    ALCdevice *device;
-    ALCcontext *context;
-    device = alcOpenDevice(NULL);
-    if(!device)
-        std::cerr<<"no sound device\n";
-    context = alcCreateContext(device, NULL);
-    alcMakeContextCurrent(context);
-    if(!context)
-        std::cerr<<"no sound context\n";
-    ALuint source;
-    ALuint buffer;
     ALuint format=0;
     alGenBuffers(1, &buffer);
     alGenSources(1, &source);
     if(alGetError() != AL_NO_ERROR)
+    {
         std::cerr<<"error generating source\n";
-
+        return;
+    }
     //identify wave format
     if(bit_sample == 8)
     {
@@ -112,12 +114,16 @@ int main(int argc, char *argv[])
             format = AL_FORMAT_STEREO16;
     }
     if(!format)
+    {
         std::cerr<<"wrong bit sample\n";
-
+        return;
+    }
     alBufferData(buffer, format, data, data_size, sample_rate);
     if(alGetError() != AL_NO_ERROR)
+    {
         std::cerr<<"error loading buffer\n";
-
+        return;
+    }
     //sound settings
     ALfloat source_position[] = {0.0, 0.0, 0.0};
     ALfloat source_velocity[] = {0.0, 0.0, 0.0};
@@ -137,12 +143,38 @@ int main(int argc, char *argv[])
     alSourcefv(source, AL_POSITION, source_position);
     alSourcefv(source, AL_VELOCITY, source_velocity);
     alSourcei(source, AL_LOOPING, AL_FALSE);
+    loaded=true;
+}
 
-    std::string command;
+int main(int argc, char *argv[])
+{
+    //initialize OpenAL
+    device = alcOpenDevice(NULL);
+    if(!device)
+        std::cerr<<"no sound device\n";
+    context = alcCreateContext(device, NULL);
+    alcMakeContextCurrent(context);
+    if(!context)
+        std::cerr<<"no sound context\n";
+    //process arguments
+    std::string command,filename;
+    if(argc==2)
+    {
+        load(argv[1]);
+        alSourcePlay(source);
+    }
+    else
+        std::cout<<"No wave file loaded. Type 'help' for a list of available commands.\n";
+    //enter command loop
     while(true)
     {
         std::cin>>command;
-        if(command=="info")
+        if(command=="load")
+        {
+            std::cin>>filename;
+            load(filename);
+        }
+        else if(command=="info")
         {
             std::cout<<"Chunk Size: "<<chunk_size<<std::endl;
             std::cout<<"Format type: "<<format_type<<std::endl;
@@ -169,6 +201,7 @@ int main(int argc, char *argv[])
                 std::cout<<"Command not recognized. Type 'help' for a list of available commands. \n";
             else
             {
+                std::cout<<"'load <filename>' - loads the given wave file\n";
                 std::cout<<"'info' - displays file information\n";
                 std::cout<<"'play' - plays the current wave file\n";
                 std::cout<<"'pause' - halts the sound momentarily\n";
@@ -178,6 +211,7 @@ int main(int argc, char *argv[])
             }
         }
     }
+    //free memory
     sound_file.close();
     delete[] data;
     alDeleteSources(1, &source);
