@@ -124,19 +124,9 @@ void load(std::string filename)
         std::cerr<<"error loading buffer\n";
         return;
     }
-    //sound settings
+    //source settings
     ALfloat source_position[] = {0.0, 0.0, 0.0};
     ALfloat source_velocity[] = {0.0, 0.0, 0.0};
-    ALfloat listener_position[] = {0.0, 0.0, 0.0};
-    ALfloat listener_velocity[] = {0.0, 0.0, 0.0};
-    ALfloat listener_orientation[] = {0.0, 0.0, -1.0, 0.0, 1.0, 0.0};
-
-    //listener
-    alListenerfv(AL_POSITION, listener_position);
-    alListenerfv(AL_VELOCITY, listener_velocity);
-    alListenerfv(AL_ORIENTATION, listener_orientation);
-
-    //source
     alSourcei(source, AL_BUFFER, buffer);
     alSourcef(source, AL_PITCH, 1.0f);
     alSourcef(source, AL_GAIN, 1.0f);
@@ -144,6 +134,7 @@ void load(std::string filename)
     alSourcefv(source, AL_VELOCITY, source_velocity);
     alSourcei(source, AL_LOOPING, AL_FALSE);
     loaded=true;
+    sound_file.close();
 }
 
 int main(int argc, char *argv[])
@@ -156,8 +147,14 @@ int main(int argc, char *argv[])
     alcMakeContextCurrent(context);
     if(!context)
         std::cerr<<"no sound context\n";
+    //listener settings
+    ALfloat listener_position[] = {0.0, 0.0, 0.0};
+    ALfloat listener_velocity[] = {0.0, 0.0, 0.0};
+    ALfloat listener_orientation[] = {0.0, 0.0, -1.0, 0.0, 1.0, 0.0};
+    alListenerfv(AL_POSITION, listener_position);
+    alListenerfv(AL_VELOCITY, listener_velocity);
+    alListenerfv(AL_ORIENTATION, listener_orientation);
     //process arguments
-    std::string command,filename;
     if(argc==2)
     {
         load(argv[1]);
@@ -166,6 +163,7 @@ int main(int argc, char *argv[])
     else
         std::cout<<"No wave file loaded. Type 'help' for a list of available commands.\n";
     //enter command loop
+    std::string command,filename;
     while(true)
     {
         std::cin>>command;
@@ -212,7 +210,6 @@ int main(int argc, char *argv[])
         }
     }
     //free memory
-    sound_file.close();
     delete[] data;
     alDeleteSources(1, &source);
     alDeleteBuffers(1, &buffer);
